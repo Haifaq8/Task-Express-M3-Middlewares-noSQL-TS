@@ -1,46 +1,84 @@
+import { Request, Response, RequestHandler } from "express";
 import Post from "../../models/Post";
-import { Request, Response } from "express";
+import Author from "../../models/Author";
 
-export const getPosts = async (req: Request, res: Response) => {
+export const createPost: RequestHandler = async (req: Request, res: Response) => {
     try {
-        const posts = await Post.find();
-        res.json(posts);
-    } catch (error) {
-        res.status(500).json({ message: "Error fetching posts" });
-    }
-};
+        const { title, body, authorId } = req.body;
 
-export const createPost = async (req: Request, res: Response) => {
-    try {
-        const { title, body } = req.body;
-        const post = await Post.create({ title, body });
-        res.json(post);
-    } catch (error) {
-        res.status(500).json({ message: "Error creating post" });
-    }
-};
-
-export const updatePost = async (req: Request, res: Response) => {
-    try {
-        const { id } = req.params;
-        const foundPost = await Post.findById(id);
-        if (!foundPost) {
-            res.status(404).json({ message: "Post not found" });
-        } else {
-            await foundPost.updateOne(req.body);
-            res.json({ message: "Post updated successfully" });
+        const author = await Author.findById(authorId);
+        if (!author) {
+            res.status(404).json({ error: "Author not found" });
+            return;
         }
+
+        const post = await Post.create({
+            title,
+            body,
+            author: authorId
+        });
+
+        await Author.findByIdAndUpdate(
+            authorId,
+            { $push: { posts: post._id } },
+            { new: true }
+        );
+
+        res.status(201).json(post);
     } catch (error) {
-        res.status(500).json({ message: "Error updating post" });
+        res.status(500).json({ error: error });
     }
 };
 
-export const deletePost = async (req: Request, res: Response) => {
+export const getPosts: RequestHandler = async (req: Request, res: Response) => {
+    try {
+        const posts = await Post.find().populate("author").populate("tags");
+        res.status(200).json(posts);
+    } catch (error) {
+        res.status(500).json({ error: error });
+    }
+};
+
+export const updatePost: RequestHandler = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        await Post.findByIdAndDelete(id);
-        res.json({ message: "Post deleted successfully" });
+        const { title, body } = req.body;
+
+        const post = await Post.findByIdAndUpdate(
+            id,
+            { title, body },
+            { new: true }
+        ).populate("author");
+
+        if (!post) {
+            res.status(404).json({ error: "Post not found" });
+            return;
+        }
+
+        res.status(200).json(post);
     } catch (error) {
-        res.status(500).json({ message: "Error deleting post" });
+        res.status(500).json({ error: error });
+    }
+};
+
+export const deletePost: RequestHandler = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const post = await Post.findByIdAndDelete(id);
+
+        if (!post) {
+            res.status(404).json({ error: "Post not found" });
+            return;
+        }
+
+        if (post.author) {
+            await Author.findByIdAndUpdate(post.author, {
+                $pull: { posts: post._id }
+            });
+        }
+
+        res.status(200).json({ message: "Post deleted" });
+    } catch (error) {
+        res.status(500).json({ error: error });
     }
 };
