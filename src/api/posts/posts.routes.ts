@@ -1,11 +1,13 @@
 import express from "express";
-import { createPost, deletePost, getPosts, updatePost } from "./posts.controller";
+import { createPost, getAllPosts } from "./posts.controller";
+import { upload } from "../../middlewares/multer.middleware";  // Add this import
 
-const router = express.Router();
+const postRouter = express.Router();
 
-router.get("/", getPosts);
-router.post("/", createPost);
-router.put("/:id", updatePost);
-router.delete("/:id", deletePost);
+// Create a new post with optional image upload
+postRouter.post("/", upload.single("image"), createPost);
 
-export default router;
+// Get all posts (no changes needed)
+postRouter.get("/", getAllPosts);
+
+export default postRouter;

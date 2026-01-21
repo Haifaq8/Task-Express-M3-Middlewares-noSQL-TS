@@ -140,3 +140,5 @@ dist
 
 # npm cache
 .npm-cache/
+
+media/
